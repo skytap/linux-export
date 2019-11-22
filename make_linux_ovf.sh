@@ -27,19 +27,28 @@
 ########################################################################
 
 
+## Check for compression flag
+c_flag='false' ## Compression flag
+while getopts 'c' flag; do
+  case "${flag}" in
+    c) c_flag='true'
+    shift $((OPTIND -1));;
+  esac
+done
+
 ## Will set the imported VM name to be the same as the hostname
 LPAR_NAME=$(hostname)
 
 ## Find number of virtual processors (count of unique cores and sockets)
 VIRTUAL_PROCESSORS=$(lscpu -b -p=Core,Socket | grep -v '^#' | sort -u | wc -l)
 
-## Find amount of allocated ram in MB
-LSHW=$(lshw -json | jq '."children" | .[0] | ."children"')
-for row in $(echo "$LSHW" | jq -r '.[] | @base64'); do
-    if [ "$(echo "$row" | base64 --decode | jq -r '.description')" == 'System memory' ]; then
-            RAM_ALLOCATION=$(($(echo $row | base64 --decode | jq -r '.size')/(1024*1024)));
-    fi
+## Find amount of allocated RAM in MB
+totalmem=0;
+for mem in /sys/devices/system/memory/memory*; do
+  [[ "$(cat ${mem}/online)" == "1" ]] \
+    && totalmem=$((totalmem+$((0x$(cat /sys/devices/system/memory/block_size_bytes)))));
 done
+RAM_ALLOCATION=$((totalmem/1024**2))
 
 ## Find all in-use ethernet adapters
 ETHERNET_ADAPTERS=$(nmcli -t -g NAME connection show | awk '{ print $1 }' | awk '!x[$0]++')
@@ -102,7 +111,7 @@ for e in $ETHERNET_ADAPTERS;do
       echo '                    <skytap:Config skytap:value="'$NETADDR'" skytap:key="networkInterface.ipAddress"/>' >> $LPAR_NAME'.ovf'
    fi
    if [ -n "$NETMASK" ]; then
-      echo '                    <skytap:Config skytap:value="'$NETMASK'" skytap:key="networkInterface.ipAddress"/>' >> $LPAR_NAME'.ovf'
+      echo '                    <skytap:Config skytap:value="'$NETMASK'" skytap:key="networkInterface.netmask"/>' >> $LPAR_NAME'.ovf'
    fi
    echo '                </ovf:Item>' >> $LPAR_NAME'.ovf'
    ((COUNT=COUNT+1))
@@ -147,5 +156,22 @@ echo '        </ovf:VirtualSystem>' >> $LPAR_NAME'.ovf'
 echo '    </ovf:VirtualSystemCollection>' >> $LPAR_NAME'.ovf'
 echo '</ovf:Envelope>' >> $LPAR_NAME'.ovf'
 
+## OVF completed
 echo 'OVF Completed Successfully'
+
+## Compressing OVA file
+if [ $c_flag = 'true' ] ; then
+    echo 'Compressing files into OVA: '$LPAR_NAME'.ova'
+    MKTAR=$LPAR_NAME'.ovf'
+    for arg;do
+      MKTAR=$(echo $MKTAR $LPAR_NAME-$arg'.img')
+    done
+    if command -v pigz >/dev/null 2>&1; then
+        tar -cv --remove-files -f - ${MKTAR} | pigz > ${LPAR_NAME}.ova
+    else
+        tar -czv --remove-files -f ${LPAR_NAME}.ova ${MKTAR}
+    fi
+fi
+
+## All done
 exit 0 #successful exit

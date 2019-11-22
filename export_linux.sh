@@ -33,9 +33,20 @@
 ## Check for empty parameters 
 if [ $# -eq 0 ];then
    echo "No parameters were passed, exiting script"
-   echo "Expecting to drive names as arguments: sda sdb ... sdz"
+   echo "Expecting to drive names as arguments: -c [drive ... drivex]"
+   echo "    -c: compresses files into .ova format"
+   echo "    expects to receive drive name, eg sda sdb... sdx"
    exit 1
 fi
+
+## Check for feature flags
+c_flag='false' ## Compression flag
+while getopts 'c' flag; do
+  case "${flag}" in
+    c) c_flag='true'
+    shift $((OPTIND -1));;
+  esac
+done
 
 ## Will set the imported VM name to be the same as the hostname
 LPAR_NAME=$(hostname)
@@ -61,7 +72,7 @@ echo "Create these image(s) in your local directory? (Yes/No)"
 read  answer
 case $answer in
    yes|Yes|y)
-	   ;;
+       ;;
    no|n|No)
       exit 2 #exiting due to user response, no errors
       ;;
@@ -75,8 +86,14 @@ for arg;do
 done
 echo 'Disks images created'
 
-## Run make_linux_ovf.sh script
-( ${0%/*}/make_linux_ovf.sh "$@" )
+echo $c_flag
+## Run make_linux_ovf.sh script and pass compression flag
+if [ $c_flag = 'true' ] ; then
+    ( ${0%/*}/make_linux_ovf.sh "-c" "$@" )
+else
+    ( ${0%/*}/make_linux_ovf.sh "$@" )
+fi
+
 if [ $? -ne 0 ]; then
    >&2 echo "FAILED: error with ovf creation, exiting script"
    exit 1 #exit script due to failure state, received failure from make_ovf script
