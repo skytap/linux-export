@@ -54,7 +54,7 @@ LPAR_NAME=$(hostname)
 ## Test for disks
 echo ""
 echo "Locating Disks:"
-for arg;do
+for arg in "$@";do
    DISK=`lscfg -l $arg`
    if [ $? -ne 0 ]; then
       >&2 echo "FAILED: unable to detect device $arg, exiting script"
@@ -80,7 +80,7 @@ esac
 
 ## Create disk images
 echo ""
-for arg;do
+for arg in "$@";do
    echo "=== Creating disk $LPAR_NAME-$arg.img ==="
    dd if=/dev/$arg of=$LPAR_NAME-$arg.img bs=1M conv=noerror,sync status=progress
 done

@@ -54,7 +54,7 @@ RAM_ALLOCATION=$((totalmem/1024**2))
 ETHERNET_ADAPTERS=$(nmcli -t -g NAME connection show | awk '{ print $1 }' | awk '!x[$0]++')
 
 ## Discover disks from input in bytes
-for arg;do
+for arg in "$@";do
    DISK=`lscfg -l $arg`
    if [ $? -ne 0 ]; then
       >&2 echo "FAILED: unable to detect device $arg, exiting script"
@@ -73,13 +73,13 @@ echo 'Creating OVF file: '$LPAR_NAME'.ovf'
 echo '<?xml version="1.0" encoding="UTF-8"?>' >> $LPAR_NAME'.ovf'
 echo '<ovf:Envelope xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:skytap="http://help.skytap.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2.22.0/CIM_VirtualSystemSettingData.xsd http://schemas.dmtf.org/ovf/envelope/1 http://schemas.dmtf.org/ovf/envelope/1/dsp8023_1.1.0.xsd http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2.22.0/CIM_ResourceAllocationSettingData.xsd">' >> $LPAR_NAME'.ovf'
 echo '    <ovf:References>' >> $LPAR_NAME'.ovf'
-for arg;do
+for arg in "$@";do
    echo '        <ovf:File ovf:id="file_'$arg'" ovf:href="'$LPAR_NAME-$arg'.img"/>' >> $LPAR_NAME'.ovf'
 done
 echo '    </ovf:References>' >> $LPAR_NAME'.ovf'
 echo '    <ovf:DiskSection>' >> $LPAR_NAME'.ovf'
 echo '        <ovf:Info>Virtual disk information</ovf:Info>' >> $LPAR_NAME'.ovf'
-for arg;do
+for arg in "$@";do
    DISK_ALLOCATION=$(lsblk --output SIZE -n -d -b /dev/$arg)
    echo '        <ovf:Disk ovf:fileRef="file_'$arg'" ovf:diskId="disk_'$arg'" ovf:capacity="'$DISK_ALLOCATION'"/>' >> $LPAR_NAME'.ovf'
 done
@@ -117,7 +117,7 @@ for e in $ETHERNET_ADAPTERS;do
    ((COUNT=COUNT+1))
 done
 COUNT=1
-for arg;do
+for arg in "$@";do
    SLOT=$(lscfg -l $arg | sed -n 's/.*-C\([^-]*\)-.*/\1/p')
    echo '                <ovf:Item>' >> $LPAR_NAME'.ovf'
    echo '                    <rasd:Description>Hard disk</rasd:Description>' >> $LPAR_NAME'.ovf'
@@ -163,7 +163,7 @@ echo 'OVF Completed Successfully'
 if [ $c_flag = 'true' ] ; then
     echo 'Compressing files into OVA: '$LPAR_NAME'.ova'
     MKTAR=$LPAR_NAME'.ovf'
-    for arg;do
+    for arg in "$@";do
       MKTAR=$(echo $MKTAR $LPAR_NAME-$arg'.img')
     done
     if command -v pigz >/dev/null 2>&1; then
