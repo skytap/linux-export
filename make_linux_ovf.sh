@@ -107,7 +107,10 @@ for e in $ETHERNET_ADAPTERS;do
    SLOT=$(lscfg -l $e | sed -n 's/.*-C\([^-]*\)-.*/\1/p')
    NETCIDR=$(ip -4 addr show $e | grep inet | awk '{print $2}')
    NETADDR=$(echo $NETCIDR | awk -F/ '{print $1}')
-   NETMASK=$(ipcalc -m $NETCIDR | awk -F= '{ print $2 }')
+   CIDRMASK=$(echo "${NETCIDR#*/}")
+   MASKbase10=$(( 0xffffffff ^ ((1 << (32 - $CIDRMASK)) - 1) ))
+   NETMASK=$(echo "$(( (MASKbase10 >> 24) & 0xff )).$(( (MASKbase10 >> 16) & 0xff )).\
+$(( (MASKbase10 >> 8) & 0xff )).$(( MASKbase10 & 0xff ))")
    cat << EOF >> $LPAR_NAME.ovf
                 <ovf:Item>
                     <rasd:Description>Ethernet adapter $COUNT</rasd:Description>
