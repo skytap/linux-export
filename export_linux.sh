@@ -55,12 +55,12 @@ LPAR_NAME=$(hostname)
 echo ""
 echo "Locating Disks:"
 for arg in "$@";do
-   DISK=`lscfg -l $arg`
+   DISK=$(lscfg -l "$arg")
    if [ $? -ne 0 ]; then
       >&2 echo "FAILED: unable to detect device $arg, exiting script"
       exit 1 #exit script due to failure state, unable to find disk
    fi
-   DISK_ALLOCATION=$(lsblk --output SIZE -n -d /dev/$arg)
+   DISK_ALLOCATION=$(lsblk --output SIZE -n -d /dev/"$arg")
    echo "Found device $arg, $DISK_ALLOCATION"
 done
 
@@ -82,16 +82,16 @@ esac
 echo ""
 for arg in "$@";do
    echo "=== Creating disk $LPAR_NAME-$arg.img ==="
-   dd if=/dev/$arg of=$LPAR_NAME-$arg.img bs=1M conv=noerror,sync status=progress
+   dd if=/dev/"$arg" of="$LPAR_NAME"-"$arg".img bs=1M conv=noerror,sync status=progress
 done
 echo 'Disks images created'
 
 echo $c_flag
 ## Run make_linux_ovf.sh script and pass compression flag
 if [ $c_flag = 'true' ] ; then
-    ( ${0%/*}/make_linux_ovf.sh "-c" "$@" )
+    ( "${0%/*}"/make_linux_ovf.sh "-c" "$@" )
 else
-    ( ${0%/*}/make_linux_ovf.sh "$@" )
+    ( "${0%/*}"/make_linux_ovf.sh "$@" )
 fi
 
 if [ $? -ne 0 ]; then
