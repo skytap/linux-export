@@ -51,7 +51,7 @@ done
 RAM_ALLOCATION=$((totalmem/1024**2))
 
 ## Find all in-use ethernet adapters
-ETHERNET_ADAPTERS=$(nmcli -t -g NAME connection show | awk '{ print $1 }' | awk '!x[$0]++')
+ETHERNET_ADAPTERS=$(ip -o link | awk '{print $2}' | sed 's/.$//' | grep eth)
 
 ## Discover disks from input in bytes
 for arg in "$@";do
@@ -104,13 +104,16 @@ done
 EOF
 COUNT=1
 for e in $ETHERNET_ADAPTERS;do
+   unset NETADDR CIDRMASK MASKbase10 NETMASK
    SLOT=$(lscfg -l "$e" | sed -n 's/.*-C\([^-]*\)-.*/\1/p')
    NETCIDR=$(ip -4 addr show "$e" | grep inet | awk '{print $2}')
-   NETADDR=$(echo "$NETCIDR" | awk -F/ '{print $1}')
-   CIDRMASK="${NETCIDR#*/}"
-   MASKbase10=$(( 0xffffffff ^ ((1 << (32 - $CIDRMASK)) - 1) ))
-   NETMASK="$(( (MASKbase10 >> 24) & 0xff )).$(( (MASKbase10 >> 16) & 0xff )).\
+   if [ -n "$NETCIDR" ]; then
+      NETADDR=$(echo "$NETCIDR" | awk -F/ '{print $1}')
+      CIDRMASK="${NETCIDR#*/}"
+      MASKbase10=$(( 0xffffffff ^ ((1 << (32 - $CIDRMASK)) - 1) ))
+      NETMASK="$(( (MASKbase10 >> 24) & 0xff )).$(( (MASKbase10 >> 16) & 0xff )).\
 $(( (MASKbase10 >> 8) & 0xff )).$(( MASKbase10 & 0xff ))"
+   fi
    cat << EOF >> "$LPAR_NAME".ovf
                 <ovf:Item>
                     <rasd:Description>Ethernet adapter $COUNT</rasd:Description>
